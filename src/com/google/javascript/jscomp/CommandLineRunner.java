@@ -823,7 +823,7 @@ public class CommandLineRunner extends
 
     if (!flags.translationsFile.isEmpty()) {
       try {
-        options.messageBundle = new XtbMessageBundle(
+        options.messageBundle = new PoMessageBundle(
             new FileInputStream(flags.translationsFile),
             flags.translationsProject);
       } catch (IOException e) {
