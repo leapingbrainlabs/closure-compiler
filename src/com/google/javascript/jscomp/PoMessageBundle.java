@@ -69,7 +69,6 @@ public class PoMessageBundle implements MessageBundle {
 
     while (scanner.hasNext()) {
       JsMessage message = parseMessage(scanner.next());
-      System.out.println("New message: " + message.getId() + ": " + message.toString());
       messages.put(message.getId(), message);
     }
   }
@@ -91,6 +90,8 @@ public class PoMessageBundle implements MessageBundle {
         parseTranslationLine(line, msgBuilder);
       } else if (line.startsWith("msgstr[")) {
         parsePluralTranslation(line, msgBuilder);
+      } else if (line.startsWith("\"")) {
+        parseTranslationString(line.trim().substring(1, line.length() -1), msgBuilder);
       }
     }
 
@@ -128,7 +129,9 @@ public class PoMessageBundle implements MessageBundle {
 
     while (scanner.hasNext()) {
       if (inVariableToken) {
-        msgBuilder.appendPlaceholderReference(scanner.next());
+        String token = scanner.next();
+        token = JsMessageVisitor.toLowerCamelCaseWithNumericSuffixes(token);
+        msgBuilder.appendPlaceholderReference(token);
       } else {
         msgBuilder.appendStringPart(scanner.next());
       }
@@ -172,13 +175,6 @@ public class PoMessageBundle implements MessageBundle {
 
   @Override
   public JsMessage getMessage(String id) {
-    JsMessage message = messages.get(id);
-    if (message == null) {
-      System.out.println(id + " = null");
-    } else {
-      System.out.println(id + " " + message.toString());
-    }
-
     return messages.get(id);
   }
 
@@ -189,7 +185,6 @@ public class PoMessageBundle implements MessageBundle {
 
   @Override
   public Iterable<JsMessage> getAllMessages() {
-    System.out.println("get all messages");
     return Iterables.unmodifiableIterable(messages.values());
   }
 

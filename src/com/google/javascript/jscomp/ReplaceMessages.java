@@ -286,6 +286,17 @@ class ReplaceMessages extends JsMessageVisitor {
   private Node replaceCallNode(JsMessage message, Node callNode)
       throws MalformedException {
     checkNode(callNode, Token.CALL);
+
+    //Check if the current message is followed by a rendered message.
+    //If it is, this message should be left alone for goog.i18n to do replacement
+    Node next = callNode.getParent().getParent().getNext();
+    if (next != null) {
+      next = next.getFirstChild();
+      if (next.getType() == Token.NAME && next.getString().startsWith("rendered")) {
+        return callNode;
+      }
+    }
+
     Node getPropNode = callNode.getFirstChild();
     checkNode(getPropNode, Token.GETPROP);
     Node stringExprNode = getPropNode.getNext();
