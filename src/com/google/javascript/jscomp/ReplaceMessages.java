@@ -113,6 +113,23 @@ class ReplaceMessages extends JsMessageVisitor {
    */
   private Node getNewValueNode(JsMessage message, Node origValueNode)
       throws MalformedException {
+
+    //Check if the current message is followed by a rendered message.
+    //If it is, this message should be left alone for goog.i18n to do replacement
+    Node next = origValueNode.getParent().getParent().getNext();
+    if (next != null) {
+      next = next.getFirstChild();
+      if (next.getType() == Token.NAME && next.getString().startsWith("rendered")) {
+
+        //return constructStringExprNode(message.parts().iterator(), null);
+        //return callNode;
+        //origValueNode = origValueNode.getLastChild();
+        return IR.string(message.toString());
+
+      }
+    }
+
+
     switch (origValueNode.getType()) {
       case Token.FUNCTION:
         // The message is a function. Modify the function node.
@@ -287,15 +304,7 @@ class ReplaceMessages extends JsMessageVisitor {
       throws MalformedException {
     checkNode(callNode, Token.CALL);
 
-    //Check if the current message is followed by a rendered message.
-    //If it is, this message should be left alone for goog.i18n to do replacement
-    Node next = callNode.getParent().getParent().getNext();
-    if (next != null) {
-      next = next.getFirstChild();
-      if (next.getType() == Token.NAME && next.getString().startsWith("rendered")) {
-        return callNode;
-      }
-    }
+
 
     Node getPropNode = callNode.getFirstChild();
     checkNode(getPropNode, Token.GETPROP);
@@ -325,7 +334,7 @@ class ReplaceMessages extends JsMessageVisitor {
 
     CharSequence part = parts.next();
     Node partNode = null;
-    if (part instanceof JsMessage.PlaceholderReference) {
+    if (objLitNode != null && part instanceof JsMessage.PlaceholderReference) {
       JsMessage.PlaceholderReference phRef =
           (JsMessage.PlaceholderReference) part;
 

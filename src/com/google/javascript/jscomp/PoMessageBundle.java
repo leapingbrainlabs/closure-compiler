@@ -79,6 +79,7 @@ public class PoMessageBundle implements MessageBundle {
     String id = null;
     String meaning = null;
     String desc = null;
+    String pluralVar = null;
 
     Scanner scanner = new Scanner(messageContent);
 
@@ -86,13 +87,22 @@ public class PoMessageBundle implements MessageBundle {
       String line = scanner.nextLine();
       if (line.startsWith("#: id=")) {
         id = line.substring(6);
+      } else if (line.startsWith("#: pluralVar=")) {
+        pluralVar = line.substring(13).trim();
+        msgBuilder.appendStringPart("{");
+        msgBuilder.appendStringPart(pluralVar);
+        msgBuilder.appendStringPart(" ,plural, offset:0  ");
       } else if (line.startsWith("msgstr ")) {
-        parseTranslationLine(line, msgBuilder);
+        parseTranslationLine(line, msgBuilder, false);
       } else if (line.startsWith("msgstr[")) {
         parsePluralTranslation(line, msgBuilder);
       } else if (line.startsWith("\"")) {
-        parseTranslationString(line.trim().substring(1, line.length() -1), msgBuilder);
+        parseTranslationString(line.trim().substring(1, line.length() -1), msgBuilder, pluralVar != null);
       }
+    }
+
+    if (pluralVar != null) {
+      msgBuilder.appendStringPart("}");
     }
 
     msgBuilder.setDesc(desc);
@@ -114,24 +124,28 @@ public class PoMessageBundle implements MessageBundle {
     }
   }
 
-  private static void parseTranslationLine(String translationLine, JsMessage.Builder msgBuilder) {
+  private static void parseTranslationLine(String translationLine, JsMessage.Builder msgBuilder, boolean inPlural) {
     Scanner scanner = new Scanner(translationLine);
     scanner.useDelimiter("'|\"");
 
     scanner.next();
-    parseTranslationString(scanner.next(), msgBuilder);
+    parseTranslationString(scanner.next(), msgBuilder, inPlural);
   }
 
-  private static void parseTranslationString(String translationString, JsMessage.Builder msgBuilder) {
+  private static void parseTranslationString(String translationString, JsMessage.Builder msgBuilder, boolean inPlural) {
     Scanner scanner = new Scanner(translationString);
     scanner.useDelimiter(Pattern.compile("\\{\\$|\\}"));
-    boolean inVariableToken = false;
+    boolean inVariableToken = translationString.startsWith("{");
 
     while (scanner.hasNext()) {
       if (inVariableToken) {
         String token = scanner.next();
-        token = JsMessageVisitor.toLowerCamelCaseWithNumericSuffixes(token);
-        msgBuilder.appendPlaceholderReference(token);
+        if (inPlural) {
+          msgBuilder.appendStringPart("{" + token + "}");
+        } else {
+          token = JsMessageVisitor.toLowerCamelCaseWithNumericSuffixes(token);
+          msgBuilder.appendPlaceholderReference(token);
+        }
       } else {
         msgBuilder.appendStringPart(scanner.next());
       }
@@ -157,7 +171,14 @@ public class PoMessageBundle implements MessageBundle {
     }
     n = scanner.nextInt();
 
-    parseTranslationLine(scanner.nextLine(), msgBuilder);
+    if (n == 0) {
+      msgBuilder.appendStringPart(" =1 ");
+    } else {
+      msgBuilder.appendStringPart(" other ");
+    }
+    msgBuilder.appendStringPart("{");
+    parseTranslationLine(scanner.nextLine(), msgBuilder, true);
+    msgBuilder.appendStringPart("}");
 
   }
 
