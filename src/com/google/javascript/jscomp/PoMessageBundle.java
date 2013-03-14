@@ -36,6 +36,7 @@ public class PoMessageBundle implements MessageBundle {
 
   private final Map<String, JsMessage> messages;
   private final JsMessage.IdGenerator idGenerator;
+  private static boolean pluralMessageNeedsEnd = false;
 
   /**
    * Creates an instance and initializes it with the messages in an XTB file.
@@ -85,6 +86,16 @@ public class PoMessageBundle implements MessageBundle {
 
     while (scanner.hasNextLine()) {
       String line = scanner.nextLine();
+
+      if (line.startsWith("\"")) {
+        parseTranslationString(line.trim().substring(1, line.length() -1), msgBuilder, pluralVar != null);
+        continue;
+      }
+
+      // Check if there is a previous multi-line plural translation that needs
+      // to be closed
+      endPluralTranslation(msgBuilder);
+
       if (line.startsWith("#: id=")) {
         id = line.substring(6);
       } else if (line.startsWith("#: pluralVar=")) {
@@ -96,10 +107,12 @@ public class PoMessageBundle implements MessageBundle {
         parseTranslationLine(line, msgBuilder, false);
       } else if (line.startsWith("msgstr[")) {
         parsePluralTranslation(line, msgBuilder);
-      } else if (line.startsWith("\"")) {
-        parseTranslationString(line.trim().substring(1, line.length() -1), msgBuilder, pluralVar != null);
       }
     }
+
+    // Check if there is a previous multi-line plural translation that still
+    // needs to be closed
+    endPluralTranslation(msgBuilder);
 
     if (pluralVar != null) {
       msgBuilder.appendStringPart("}");
@@ -151,13 +164,6 @@ public class PoMessageBundle implements MessageBundle {
       }
       inVariableToken = !inVariableToken;
     }
-
-    if (scanner.hasNextLine()) {
-      String remainder = scanner.nextLine();
-      if (remainder.length() > 0) {
-        msgBuilder.appendStringPart(remainder);
-      }
-    }
   }
 
   private static void parsePluralTranslationLine(String translationLine, JsMessage.Builder msgBuilder) {
@@ -176,10 +182,20 @@ public class PoMessageBundle implements MessageBundle {
     } else {
       msgBuilder.appendStringPart(" other ");
     }
-    msgBuilder.appendStringPart("{");
+    startPluralTranslation(msgBuilder);
     parseTranslationLine(scanner.nextLine(), msgBuilder, true);
-    msgBuilder.appendStringPart("}");
+  }
 
+  private static void startPluralTranslation(JsMessage.Builder msgBuilder) {
+    pluralMessageNeedsEnd = true;
+    msgBuilder.appendStringPart("{");
+  }
+
+  private static void endPluralTranslation(JsMessage.Builder msgBuilder) {
+    if (pluralMessageNeedsEnd) {
+      pluralMessageNeedsEnd = false;
+      msgBuilder.appendStringPart("}");
+    }
   }
 
   public static String readString(InputStream inputStream) throws IOException {
