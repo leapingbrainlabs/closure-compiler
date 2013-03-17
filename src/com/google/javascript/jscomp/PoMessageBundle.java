@@ -27,21 +27,23 @@ import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
- * A MessageBundle that parses messages from an XML Translation Bundle (XTB)
- * file.
+ * A MessageBundle that parses messages from an GNU Gettext PO file
  *
  */
-@SuppressWarnings("sunapi")
 public class PoMessageBundle implements MessageBundle {
-
   private final Map<String, JsMessage> messages;
   private final JsMessage.IdGenerator idGenerator;
   private static boolean pluralMessageNeedsEnd = false;
 
+  private static final String PLURAL_VAR_PREFIX = "#: pluralVar=";
+  private static final String ID_PREFIX = "#: id=";
+  private static final String SINGULAR_TRANSLATION_PREFIX = "msgstr ";
+  private static final String PLURAL_TRANSLATION_PREFIX = "msgstr[";
+
   /**
-   * Creates an instance and initializes it with the messages in an XTB file.
+   * Creates an instance and initializes it with the messages in a PO file.
    *
-   * @param xtb  the XTB file as a byte stream
+   * @param po  the PO file as a byte stream
    * @param projectId  the translation console project id (i.e. name)
    */
   public PoMessageBundle(InputStream po, @Nullable String projectId) {
@@ -57,14 +59,14 @@ public class PoMessageBundle implements MessageBundle {
   }
 
  /**
-   * Parses the content of a translated XLIFF file and creates a SoyMsgBundle.
+   * Parses the content of a translated PO file.
    *
    * @param poContent The PO content to parse.
    * @throws PoException If there's an error parsing the data.
-   * @throws SoyMsgException If there's an error in parsing the data.
    */
-  static void parsePoTargetMsgs(String poContent, Map<String, JsMessage> messages) {
-
+  static void parsePoTargetMsgs(
+          String poContent,
+          Map<String, JsMessage> messages) {
     Scanner scanner = new Scanner(poContent);
     scanner.useDelimiter("\n\n");
 
@@ -74,8 +76,14 @@ public class PoMessageBundle implements MessageBundle {
     }
   }
 
+  /**
+   *
+   * Put a PO message example here
+   *
+   * @param messageContent
+   * @return
+   */
   private static JsMessage parseMessage(String messageContent) {
-
     JsMessage.Builder msgBuilder = new JsMessage.Builder();
     String id = null;
     String meaning = null;
@@ -88,7 +96,10 @@ public class PoMessageBundle implements MessageBundle {
       String line = scanner.nextLine();
 
       if (line.startsWith("\"")) {
-        parseTranslationString(line.trim().substring(1, line.length() -1), msgBuilder, pluralVar != null);
+        parseTranslationString(
+                line.trim().substring(1, line.length() -1),
+                msgBuilder,
+                pluralVar != null);
         continue;
       }
 
@@ -96,16 +107,16 @@ public class PoMessageBundle implements MessageBundle {
       // to be closed
       endPluralTranslation(msgBuilder);
 
-      if (line.startsWith("#: id=")) {
-        id = line.substring(6);
-      } else if (line.startsWith("#: pluralVar=")) {
-        pluralVar = line.substring(13).trim();
+      if (line.startsWith(ID_PREFIX)) {
+        id = line.substring(ID_PREFIX.length()).trim();
+      } else if (line.startsWith(PLURAL_VAR_PREFIX)) {
+        pluralVar = line.substring(PLURAL_VAR_PREFIX.length()).trim();
         msgBuilder.appendStringPart("{");
         msgBuilder.appendStringPart(pluralVar);
-        msgBuilder.appendStringPart(" ,plural, offset:0  ");
-      } else if (line.startsWith("msgstr ")) {
+        msgBuilder.appendStringPart(" ,plural, offset:0 ");
+      } else if (line.startsWith(SINGULAR_TRANSLATION_PREFIX)) {
         parseTranslationLine(line, msgBuilder, false);
-      } else if (line.startsWith("msgstr[")) {
+      } else if (line.startsWith(PLURAL_TRANSLATION_PREFIX)) {
         parsePluralTranslation(line, msgBuilder);
       }
     }
@@ -127,7 +138,9 @@ public class PoMessageBundle implements MessageBundle {
     return message;
   }
 
-  private static void parsePluralTranslation(String translationLines, JsMessage.Builder msgBuilder) {
+  private static void parsePluralTranslation(
+          String translationLines,
+          JsMessage.Builder msgBuilder) {
 
     Scanner scanner = new Scanner(translationLines);
     scanner.useDelimiter("\n");
@@ -137,7 +150,10 @@ public class PoMessageBundle implements MessageBundle {
     }
   }
 
-  private static void parseTranslationLine(String translationLine, JsMessage.Builder msgBuilder, boolean inPlural) {
+  private static void parseTranslationLine(
+          String translationLine,
+          JsMessage.Builder msgBuilder,
+          boolean inPlural) {
     Scanner scanner = new Scanner(translationLine);
     scanner.useDelimiter("'|\"");
 
@@ -145,7 +161,9 @@ public class PoMessageBundle implements MessageBundle {
     parseTranslationString(scanner.next(), msgBuilder, inPlural);
   }
 
-  private static void parseTranslationString(String translationString, JsMessage.Builder msgBuilder, boolean inPlural) {
+  private static void parseTranslationString(String translationString,
+          JsMessage.Builder msgBuilder,
+          boolean inPlural) {
     Scanner scanner = new Scanner(translationString);
     scanner.useDelimiter(Pattern.compile("\\{\\$|\\}"));
     boolean inVariableToken = translationString.startsWith("{");
@@ -166,14 +184,17 @@ public class PoMessageBundle implements MessageBundle {
     }
   }
 
-  private static void parsePluralTranslationLine(String translationLine, JsMessage.Builder msgBuilder) {
+  private static void parsePluralTranslationLine(
+          String translationLine,
+          JsMessage.Builder msgBuilder) {
     int n;
     Scanner scanner = new Scanner(translationLine);
     scanner.useDelimiter("\\[|\\]");
     try {
       scanner.next();
     } catch (InputMismatchException e) {
-      throw new PoException("Incorrect plural translation line: ".concat(translationLine));
+      throw new PoException(
+              "Incorrect plural translation line: " + translationLine);
     }
     n = scanner.nextInt();
 
@@ -199,14 +220,13 @@ public class PoMessageBundle implements MessageBundle {
   }
 
   public static String readString(InputStream inputStream) throws IOException {
-
       ByteArrayOutputStream into = new ByteArrayOutputStream();
       byte[] buf = new byte[4096];
       for (int n; 0 < (n = inputStream.read(buf));) {
           into.write(buf, 0, n);
       }
       into.close();
-      return new String(into.toByteArray(), "UTF-8"); // Or whatever encoding
+      return new String(into.toByteArray(), "UTF-8");
   }
 
 
