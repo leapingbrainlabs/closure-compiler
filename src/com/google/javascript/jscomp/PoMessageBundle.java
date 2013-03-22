@@ -141,8 +141,17 @@ public class PoMessageBundle implements MessageBundle {
     Scanner scanner = new Scanner(translationLine);
     scanner.useDelimiter("'|\"");
 
+    if (!scanner.hasNext()) return;
     scanner.next();
-    parseTranslationString(scanner.next(), msgBuilder, inPlural);
+
+    if (!scanner.hasNext()) return;
+    String s = scanner.next();
+    
+    while (scanner.hasNext()) {
+      s = s + "\"" + scanner.next();
+    }
+
+    parseTranslationString(s, msgBuilder, inPlural);
   }
 
   private static void parseTranslationString(String translationString, JsMessage.Builder msgBuilder, boolean inPlural) {
@@ -160,7 +169,7 @@ public class PoMessageBundle implements MessageBundle {
           msgBuilder.appendPlaceholderReference(token);
         }
       } else {
-        msgBuilder.appendStringPart(scanner.next());
+        msgBuilder.appendStringPart(unescapeString(scanner.next()));
       }
       inVariableToken = !inVariableToken;
     }
@@ -207,6 +216,10 @@ public class PoMessageBundle implements MessageBundle {
       }
       into.close();
       return new String(into.toByteArray(), "UTF-8"); // Or whatever encoding
+  }
+
+  static String unescapeString(String s) {
+    return s.replaceAll("\\\\\"", "\"").replaceAll("\u005c\u005c\u005c\u0022", "\"");
   }
 
 
