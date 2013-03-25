@@ -82,14 +82,20 @@ public class PoMessageBundle implements MessageBundle {
     String desc = null;
     String pluralVar = null;
 
+    // TODO: Make this an enum or something and incorporate the plural status
+    // into it
+    String currentParseStatus = "standard";
+
     Scanner scanner = new Scanner(messageContent);
 
     while (scanner.hasNextLine()) {
       String line = scanner.nextLine();
 
-      if (line.startsWith("\"")) {
+      if (line.startsWith("\"") && currentParseStatus.equalsIgnoreCase("translation")) {
         parseTranslationString(line.trim().substring(1, line.length() -1), msgBuilder, pluralVar != null);
         continue;
+      } else {
+        currentParseStatus = "standard";
       }
 
       // Check if there is a previous multi-line plural translation that needs
@@ -104,8 +110,10 @@ public class PoMessageBundle implements MessageBundle {
         msgBuilder.appendStringPart(pluralVar);
         msgBuilder.appendStringPart(" ,plural, offset:0  ");
       } else if (line.startsWith("msgstr ")) {
+        currentParseStatus = "translation";
         parseTranslationLine(line, msgBuilder, false);
       } else if (line.startsWith("msgstr[")) {
+        currentParseStatus = "translation";
         parsePluralTranslation(line, msgBuilder);
       }
     }
@@ -146,7 +154,7 @@ public class PoMessageBundle implements MessageBundle {
 
     if (!scanner.hasNext()) return;
     String s = scanner.next();
-    
+
     while (scanner.hasNext()) {
       s = s + "\"" + scanner.next();
     }
@@ -160,14 +168,13 @@ public class PoMessageBundle implements MessageBundle {
     boolean inVariableToken = translationString.startsWith("{");
 
     while (scanner.hasNext()) {
-      if (inVariableToken) {
+      if (inVariableToken && inPlural) {
         String token = scanner.next();
-        if (inPlural) {
-          msgBuilder.appendStringPart("{" + token + "}");
-        } else {
-          token = JsMessageVisitor.toLowerCamelCaseWithNumericSuffixes(token);
-          msgBuilder.appendPlaceholderReference(token);
-        }
+        msgBuilder.appendStringPart("{" + token + "}");
+      } else if (inVariableToken) {
+        String token = scanner.next();
+        token = JsMessageVisitor.toLowerCamelCaseWithNumericSuffixes(token);
+        msgBuilder.appendPlaceholderReference(token);
       } else {
         msgBuilder.appendStringPart(unescapeString(scanner.next()));
       }
@@ -219,7 +226,7 @@ public class PoMessageBundle implements MessageBundle {
   }
 
   static String unescapeString(String s) {
-    return s.replaceAll("\\\\\"", "\"").replaceAll("\u005c\u005c\u005c\u0022", "\"");
+    return s.replace("\\\"", "\"").replace("\\n", "\n");
   }
 
 
