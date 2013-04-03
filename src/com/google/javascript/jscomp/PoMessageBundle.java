@@ -147,14 +147,17 @@ public class PoMessageBundle implements MessageBundle {
 
   private static void parseTranslationLine(String translationLine, JsMessage.Builder msgBuilder, boolean inPlural) {
     Scanner scanner = new Scanner(translationLine);
-    scanner.useDelimiter("'|\"");
+    scanner.useDelimiter("\"");
 
+    // Consume opening quotation
     if (!scanner.hasNext()) return;
     scanner.next();
 
+    // Store beginning of string
     if (!scanner.hasNext()) return;
     String s = scanner.next();
 
+    // Concatenate the entire string until the final, closing quotation is found
     while (scanner.hasNext()) {
       s = s + "\"" + scanner.next();
     }
