@@ -90,17 +90,21 @@ public class PoMessageBundle implements MessageBundle {
     String desc = null;
     String pluralVar = null;
 
+    // TODO: Make this an enum or something and incorporate the plural status
+    // into it
+    String currentParseStatus = "standard";
+
     Scanner scanner = new Scanner(messageContent);
 
     while (scanner.hasNextLine()) {
       String line = scanner.nextLine();
 
-      if (line.startsWith("\"")) {
-        parseTranslationString(
-                line.trim().substring(1, line.length() -1),
-                msgBuilder,
-                pluralVar != null);
+
+      if (line.startsWith("\"") && currentParseStatus.equalsIgnoreCase("translation")) {
+        parseTranslationString(line.trim().substring(1, line.length() -1), msgBuilder, pluralVar != null);
         continue;
+      } else {
+        currentParseStatus = "standard";
       }
 
       // Check if there is a previous multi-line plural translation that needs
@@ -113,10 +117,12 @@ public class PoMessageBundle implements MessageBundle {
         pluralVar = line.substring(PLURAL_VAR_PREFIX.length()).trim();
         msgBuilder.appendStringPart("{");
         msgBuilder.appendStringPart(pluralVar);
-        msgBuilder.appendStringPart(" ,plural, offset:0 ");
+        msgBuilder.appendStringPart(" ,plural, offset:0  ");
       } else if (line.startsWith(SINGULAR_TRANSLATION_PREFIX)) {
+        currentParseStatus = "translation";
         parseTranslationLine(line, msgBuilder, false);
       } else if (line.startsWith(PLURAL_TRANSLATION_PREFIX)) {
+        currentParseStatus = "translation";
         parsePluralTranslation(line, msgBuilder);
       }
     }
@@ -155,10 +161,22 @@ public class PoMessageBundle implements MessageBundle {
           JsMessage.Builder msgBuilder,
           boolean inPlural) {
     Scanner scanner = new Scanner(translationLine);
-    scanner.useDelimiter("'|\"");
+    scanner.useDelimiter("\"");
 
+    // Consume opening quotation
+    if (!scanner.hasNext()) return;
     scanner.next();
-    parseTranslationString(scanner.next(), msgBuilder, inPlural);
+
+    // Store beginning of string
+    if (!scanner.hasNext()) return;
+    String s = scanner.next();
+
+    // Concatenate the entire string until the final, closing quotation is found
+    while (scanner.hasNext()) {
+      s = s + "\"" + scanner.next();
+    }
+
+    parseTranslationString(s, msgBuilder, inPlural);
   }
 
   private static void parseTranslationString(String translationString,
@@ -169,16 +187,15 @@ public class PoMessageBundle implements MessageBundle {
     boolean inVariableToken = translationString.startsWith("{");
 
     while (scanner.hasNext()) {
-      if (inVariableToken) {
+      if (inVariableToken && inPlural) {
         String token = scanner.next();
-        if (inPlural) {
-          msgBuilder.appendStringPart("{" + token + "}");
-        } else {
-          token = JsMessageVisitor.toLowerCamelCaseWithNumericSuffixes(token);
-          msgBuilder.appendPlaceholderReference(token);
-        }
+        msgBuilder.appendStringPart("{" + token + "}");
+      } else if (inVariableToken) {
+        String token = scanner.next();
+        token = JsMessageVisitor.toLowerCamelCaseWithNumericSuffixes(token);
+        msgBuilder.appendPlaceholderReference(token);
       } else {
-        msgBuilder.appendStringPart(scanner.next());
+        msgBuilder.appendStringPart(unescapeString(scanner.next()));
       }
       inVariableToken = !inVariableToken;
     }
@@ -227,6 +244,10 @@ public class PoMessageBundle implements MessageBundle {
       }
       into.close();
       return new String(into.toByteArray(), "UTF-8");
+  }
+
+  static String unescapeString(String s) {
+    return s.replace("\\\"", "\"").replace("\\n", "\n");
   }
 
 
