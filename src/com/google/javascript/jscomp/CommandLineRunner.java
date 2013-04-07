@@ -407,8 +407,14 @@ public class CommandLineRunner extends
     private boolean version = false;
 
     @Option(name = "--translations_file",
-        usage = "Source of translated messages. Currently only supports XTB.")
+        usage = "Source of translated messages. Currently only support XTB and "
+        + "gettext PO.")
     private String translationsFile = "";
+
+    @Option(name = "--translation_format",
+        usage = "Format to use to interpret translations file. Options: XTB, PO"
+        + ". Default: XTB.")
+    private TranslationFormat translationFormat = TranslationFormat.XTB;
 
     @Option(name = "--translations_project",
         usage = "Scopes all translations to the specified project." +
@@ -565,6 +571,14 @@ public class CommandLineRunner extends
       }
       return spec;
     }
+  }
+
+  /**
+   * Set of options that can be used with the --translation_format flag.
+   */
+  private static enum TranslationFormat {
+    XTB,
+    PO
   }
 
   /**
@@ -821,9 +835,18 @@ public class CommandLineRunner extends
 
     options.angularPass = flags.angular_pass;
 
-    if (!flags.translationsFile.isEmpty()) {
+    if (!flags.translationsFile.isEmpty() &&
+         flags.translationFormat == TranslationFormat.PO) {
       try {
         options.messageBundle = new PoMessageBundle(
+            new FileInputStream(flags.translationsFile),
+            flags.translationsProject);
+      } catch (IOException e) {
+        throw new RuntimeException("Reading PO file", e);
+      }
+    } else if (!flags.translationsFile.isEmpty()) {
+      try {
+        options.messageBundle = new XtbMessageBundle(
             new FileInputStream(flags.translationsFile),
             flags.translationsProject);
       } catch (IOException e) {
